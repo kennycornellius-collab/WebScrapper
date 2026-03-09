@@ -40,7 +40,7 @@ if __name__ == "__main__":
         
         print("\n--- Extracted Economic Calendar ---")
         print(df.head(15).to_string())
-        os.makedirs("csv result/", exist_ok=True)
-        df.to_csv("csv result/forex_calendar.csv", index=False)
+        os.makedirs("data", exist_ok=True)
+        df.to_csv("data/forex_calendar.csv", index=False)
         print("\nData saved to forex_calendar.csv")
         

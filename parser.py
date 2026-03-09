@@ -59,7 +59,7 @@ def parse_calendar_html(html_content: str) -> pd.DataFrame:
         usd_high_impact = df[(df['Currency'] == 'USD') & (df['Impact'].str.contains('High', na=False, case=False))]
         print("\n--- High Impact USD Events (Gold Triggers) ---")
         print(usd_high_impact.to_string())
-        os.makedirs("csv result/", exist_ok=True)
-        usd_high_impact.to_csv("csv result/usd_high_impact_calendar.csv", index=False)
+        os.makedirs("data", exist_ok=True)
+        usd_high_impact.to_csv("data/usd_high_impact_calendar.csv", index=False)
         print("\nFiltered high-impact data saved to usd_high_impact_calendar.csv")
     return df
