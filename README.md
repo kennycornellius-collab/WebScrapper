@@ -6,13 +6,13 @@ An automated data extraction pipeline that scrapes the Forex Factory economic ca
 
 ## Overview
 
-**What this is:** A robust web scraping and data cleaning microservice.
+A robust web scraping and data cleaning microservice that extracts, structures, and delivers a filtered economic calendar every week — fully automated via GitHub Actions with zero infrastructure cost.
 
-**Business Value:**
-- **Bypasses Bot Protection:** Uses Playwright to render JavaScript and wait for network idleness, successfully bypassing Cloudflare protections that block standard Python `requests`.
-- **Handles Dynamic Data:** Automatically simulates user scrolling to force the rendering of lazy-loaded DOM elements for the entire week.
-- **Advanced Data Cleaning:** Uses Pandas to resolve nested HTML structures and forward-fill missing/cascading time data on merged table cells.
-- **Algorithmic Trading Ready:** Automatically filters the noise and outputs a clean CSV of "High Impact" USD events, designed to be fed directly into algorithmic trading bots as macroeconomic volatility triggers.
+The scraper handles two non-trivial problems that block standard approaches: Cloudflare bot protection that rejects plain HTTP requests, and lazy-loaded DOM elements that only render after user interaction. Playwright resolves both by running a real headless Chromium session and simulating scroll behavior before extraction begins.
+
+On the data side, Forex Factory's HTML uses merged table cells for grouped event times — meaning most rows have no time value at all. A Pandas forward-fill pass reconstructs the correct time for every row before export.
+
+The pipeline runs automatically every Monday on GitHub's cloud servers, commits the freshly scraped CSV directly back to the repository, and requires no local setup or manual intervention to keep the data current.
 
 ---
 
@@ -23,6 +23,7 @@ An automated data extraction pipeline that scrapes the Forex Factory economic ca
 | **Networking & JS Rendering** | `Playwright` (Headless Chromium) |
 | **HTML Parsing** | `BeautifulSoup4` |
 | **Data Cleaning & Structuring** | `Pandas` |
+| **Automation** | GitHub Actions |
 
 ---
 
@@ -30,13 +31,15 @@ An automated data extraction pipeline that scrapes the Forex Factory economic ca
 
 ```
 WebScrapper/
-├── scraper.py           # Playwright engine: headless navigation and JS rendering
-├── parser.py            # BeautifulSoup & Pandas: HTML parsing and data structuring
-├── .gitignore           # Excludes venv, pycache, and local CSV results
+├── .github/
+│   └── workflows/
+│       └── scraper.yml      # GitHub Actions workflow — runs every Monday at 00:00 UTC
+├── scraper.py               # Playwright engine: headless navigation and JS rendering
+├── parser.py                # BeautifulSoup & Pandas: HTML parsing and data structuring
+├── csv result/              # Auto-committed output directory (updated weekly by CI)
+├── .gitignore               # Excludes venv and pycache
 └── README.md
 ```
-
-> Output files are saved to a local `csv result/` directory which is excluded from version control.
 
 ---
 
@@ -67,7 +70,7 @@ playwright install chromium
 
 ## Usage
 
-Run the main scraper script:
+Run the scraper manually:
 
 ```bash
 python scraper.py
@@ -81,6 +84,58 @@ python scraper.py
 4. **Export:** Generates two output files:
    - `forex_calendar.csv` — The complete, cleaned dataset for the week.
    - `usd_high_impact_calendar.csv` — A filtered dataset containing only severe USD volatility events.
+
+---
+
+## Automation — GitHub Actions
+
+The repository includes a workflow that runs the full scraper pipeline automatically every Monday at 00:00 UTC using GitHub's free cloud runners — no local machine or paid infrastructure required.
+
+After each run, the workflow commits the updated CSV files directly back to the repository under `csv result/`, keeping the data current without any manual intervention.
+
+The workflow can also be triggered manually at any time via the **Actions** tab using the `workflow_dispatch` event.
+
+```yaml
+name: Forex Factory Weekly Scraper
+
+on:
+  schedule:
+    - cron: '0 0 * * 1'
+  workflow_dispatch:
+
+jobs:
+  scrape-and-update:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install playwright beautifulsoup4 pandas
+          playwright install chromium
+
+      - name: Run the Scraper
+        run: python scraper.py
+
+      - name: Commit and Push the New Data
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -m "data: auto-update weekly forex calendar" || exit 0
+          git push
+```
 
 ---
 
